@@ -1,6 +1,16 @@
 // vim: ts=2 sw=2
-(function () {
-  d3.timeline = function() {
+;(function (global, factory) {
+  "use strict"
+  if (typeof module === "object" && module != null && module.exports) {
+    module.exports = factory(global, require('d3'));
+  } else if (typeof define === "function" && define.amd) {
+    define(['d3'], factory);
+  } else {
+    if ( ! global.d3 ) throw new Error("d3-timeline requires d3");
+    global.d3.timeline = timeline;
+  }
+})(typeof window !== "undefined" ? window : this, function (global, d3) {
+  return function() {
     var DISPLAY_TYPES = ["circle", "rect"];
 
     var hover = function () {},
@@ -683,4 +693,4 @@
 
     return timeline;
   };
-})();
+});
