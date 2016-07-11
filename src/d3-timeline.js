@@ -277,7 +277,6 @@
                 return getStackPosition(d, i) + itemHeight/2;
             })
             .attr("cx", getXPos)
-            .attr("r", itemHeight / 2)
             .attr("height", itemHeight)
             .style("fill", function(d, i){
               var dColorPropName;
@@ -315,6 +314,10 @@
 
               return d.id ? d.id : "timelineItem_"+index+"_"+i;
             })
+            .attr("r", 0)
+            .transition()
+              .duration(1000)
+              .attr("r", itemHeight / 2)
           ;
 
           g.selectAll("svg").data(data).enter()
