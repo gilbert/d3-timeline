@@ -26,13 +26,13 @@
         height = null,
         rowSeparatorsColor = null,
         backgroundColor = null,
-        tickFormat = { format: d3.time.format("%I %p"),
-          tickTime: d3.time.hours,
+        tickFormat = { format: d3.timeFormat("%I %p"),
+          tickTime: d3.timeHour,
           tickInterval: 1,
           tickSize: 6,
           tickValues: null
         },
-        colorCycle = d3.scale.category20(),
+        colorCycle = d3.scaleOrdinal(d3.schemeCategory20),
         colorPropertyName = null,
         display = "rect",
         beginning = 0,
@@ -168,9 +168,11 @@
 
     function timeline (gParent) {
       var g = gParent.append("g");
-      var gParentSize = gParent[0][0].getBoundingClientRect();
+      var gParentSize = g.node().parentNode.getBoundingClientRect();
 
-      var gParentItem = d3.select(gParent[0][0]);
+      width = width || gParentSize.width
+
+      var gParentItem = d3.select( g.node() );
 
       var yAxisMapping = {},
         maxStack = 1,
@@ -233,20 +235,19 @@
       var scaleFactor = (1/(ending - beginning)) * (width - margin.left - margin.right);
 
       // draw the axis
-      var xScale = d3.time.scale()
+      var xScale = d3.scaleTime()
         .domain([beginning, ending])
         .range([margin.left, width - margin.right]);
 
-      var xAxis = d3.svg.axis()
-        .scale(xScale)
-        .orient(orient)
+
+      var xAxis = d3.axisBottom(xScale)
         .tickFormat(tickFormat.format)
         .tickSize(tickFormat.tickSize);
 
       if (tickFormat.tickValues != null) {
         xAxis.tickValues(tickFormat.tickValues);
       } else {
-        xAxis.ticks(tickFormat.numTicks || tickFormat.tickTime, tickFormat.tickInterval);
+        xAxis.ticks(tickFormat.numTicks || tickFormat.tickTime.every(tickFormat.tickInterval));
       }
 
       // draw the chart
@@ -265,7 +266,7 @@
 
           g.selectAll("svg").data(data).enter()
             .append(function(d, i) {
-                return document.createElementNS(d3.ns.prefix.svg, "display" in d? d.display:display);
+                return document.createElementNS(d3.namespaces.svg, "display" in d? d.display:display);
             })
             .attr("x", getXPos)
             .attr("y", getStackPosition)
@@ -394,7 +395,7 @@
           });
       }
 
-      var gSize = g[0][0].getBoundingClientRect();
+      var gSize = g.node().getBoundingClientRect();
       setHeight();
 
       if (showBorderLine) {
@@ -428,7 +429,7 @@
             // set height based off of item height
             height = gSize.height + gSize.top - gParentSize.top;
             // set bounding rectangle height
-            d3.select(gParent[0][0]).attr("height", height);
+            d3.select(gParent.node()).attr("height", height);
           } else {
             throw "height of the timeline is not set";
           }
