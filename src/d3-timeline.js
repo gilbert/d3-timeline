@@ -354,6 +354,12 @@
           .transition()
           .call(setPointPositionAndSize)
 
+        points.exit()
+          .transition()
+            .duration(500)
+            .attr("r", 0)
+            .remove()
+
         points.enter()
           .append(function(d, i) {
             return document.createElementNS(d3.namespaces.svg, ("display" in d) ? d.display : display);
