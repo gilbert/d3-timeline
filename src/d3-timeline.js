@@ -39,7 +39,7 @@
         beginning = 0,
         labelMargin = 0,
         ending = 0,
-        margin = {left: 30, right:30, top: 30, bottom:30},
+        presetMargin = {left: 30, right:30, top: 30, bottom:30},
         stacked = false,
         rotateTicks = false,
         timeIsRelative = false,
@@ -59,11 +59,11 @@
         chartData = {}
       ;
 
-    var renderTimeAxis = function(g, xAxis, yPosition) {
+    var renderTimeAxis = function(g, xAxis, yPosition, margin) {
 
       if(showAxisHeaderBackground){ renderAxisHeaderBackground(g, 0, 0); }
 
-      if(showAxisNav){ renderTimeAxisNav(g) };
+      if(showAxisNav){ renderTimeAxisNav(g, margin) };
 
       var axis = g.select("g.axis")
         .attr("transform", "translate(" + 0 + "," + yPosition + ")")
@@ -84,7 +84,7 @@
         .text(calendarLabel)
       ;
     };
-    var renderTimeAxisNav = function (g) {
+    var renderTimeAxisNav = function (g, margin) {
       var timelineBlocks = 6;
       var leftNavMargin = (margin.left - navMargin);
       var incrementValue = (width - margin.left)/timelineBlocks;
@@ -126,14 +126,14 @@
         .attr("fill", axisBgColor);
     };
 
-    var renderTimeAxisTick = function(g, xAxis, maxStack) {
+    var renderTimeAxisTick = function(g, xAxis, maxStack, margin) {
       g.select("g.axis")
         .attr("transform", "translate(" + 0 + "," + (margin.top + (itemHeight + itemMargin) * maxStack) + ")")
         .attr(timeAxisTickFormat.stroke, timeAxisTickFormat.spacing)
         .call(xAxis.tickFormat("").tickSize(-(margin.top + (itemHeight + itemMargin) * (maxStack - 1) + 3), 0, 0));
     };
 
-    var appendBackgroundBar = function (yAxisMapping, index, g, data, datum) {
+    var appendBackgroundBar = function (margin, yAxisMapping, index, g, data, datum) {
       var greenbarYAxis = ((itemHeight + itemMargin) * yAxisMapping[index]) + margin.top;
       g.selectAll("svg").data(data).enter()
         .insert("rect")
@@ -171,11 +171,6 @@
         }
 
         if (showAxisNav) {
-          var timelineBlocks = 6;
-          var leftNavMargin = (margin.left - navMargin);
-          var incrementValue = (width - margin.left)/timelineBlocks;
-          var rightNavMargin = (width - margin.right - incrementValue + navMargin);
-
           var nav = gParent.append('g')
               .attr("class", "axis")
               .attr("transform", "translate(0, 0)")
@@ -223,6 +218,31 @@
       var gParentSize = gParent.node().getBoundingClientRect();
 
       var width = presetWidth || gParentSize.width;
+
+      //
+      // Calculate longest label to add to left margin
+      //
+      var longestLabel = chartData.reduce(function (longest, d) {
+        return longest.length > d.label.length ? longest : d.label
+      }, "")
+
+      var longestLabelLength;
+
+      gParent.append('text')
+        .attr('class', 'timeline-label')
+        .text(longestLabel)
+        .call(function (textSelection, y, z) {
+          var text = textSelection.node()
+          longestLabelLength = text.getComputedTextLength()
+          text.remove()
+        })
+
+      var margin = Object.assign({}, presetMargin, {
+        left: Math.max(
+          presetMargin.left,
+          longestLabelLength
+        )
+      })
 
       var yAxisMapping = {},
         maxStack = 1,
@@ -329,7 +349,7 @@
           console.warn("d3Timeline Warning: Ids per dataset is deprecated in favor of a 'class' key. Ids are now per data element.");
         }
 
-        if (backgroundColor) { appendBackgroundBar(yAxisMapping, index, g, data, datum); }
+        if (backgroundColor) { appendBackgroundBar(margin, yAxisMapping, index, g, data, datum); }
 
         function setPointPositionAndSize (elem) {
           return elem
@@ -345,7 +365,6 @@
             .attr("height", itemHeight)
         }
 
-        console.log("Rendering data", data, "within", timelineElem.node())
         var pointClass = datum.class ? "timelineSeries_"+datum.class : "timelineSeries_"+index
 
         var points = timelineElem.selectAll("."+pointClass).data(data, identifyPointBy)
@@ -468,8 +487,8 @@
       var aboveFirstItem = margin.top;
       var timeAxisYPosition = showAxisTop ? aboveFirstItem : belowLastItem;
 
-      if (showTimeAxis) { renderTimeAxis(gParent, xAxis, timeAxisYPosition); }
-      if (timeAxisTick) { renderTimeAxisTick(gParent, xAxis, maxStack); }
+      if (showTimeAxis) { renderTimeAxis(gParent, xAxis, timeAxisYPosition, margin); }
+      if (timeAxisTick) { renderTimeAxisTick(gParent, xAxis, maxStack, margin); }
 
       if (rotateTicks) {
         g.selectAll(".tick text")
@@ -505,10 +524,11 @@
       }
 
       function setWidth (oldWidth, gParentSize) {
+        var gNode = g.node()
 
         if ( ! oldWidth && ! gParentSize.width ) {
           try {
-            return gParentItem.attr("width");
+            return gNode.getAttribute("width");
             if ( ! newWidth ) {
               throw "width of the timeline is not set. As of Firefox 27, timeline().with(x) needs to be explicitly set in order to render";
             }
@@ -518,7 +538,7 @@
         }
         else if ( ! (oldWidth && gParentSize.width) ) {
           try {
-            return gParentItem.attr("width");
+            return gNode.getAttribute("width");
           } catch (err) {
             console.log( err );
           }
@@ -528,6 +548,41 @@
         return oldWidth
       }
 
+      function setHeight() {
+        var gNode = g.node()
+
+        if (!height && !gNode.getAttribute("height")) {
+          if (itemHeight) {
+
+            height = 0;
+
+            // Combine heights of all children
+            var children = gNode.parentElement.children;
+            for (var i=0; i < children.length; i++) {
+              var childSize = children[i].getBoundingClientRect();
+              height += childSize.height;
+            }
+
+            // Add top margin offset
+            var gParentSize = gParent.node().getBoundingClientRect();
+            // debugger
+            height += children[0].getBoundingClientRect().top - gParentSize.top;
+            // height += children[0].getBoundingClientRect().top;
+            height += margin.top;
+
+            // set bounding rectangle height
+            gParent.node().setAttribute("height", height);
+          } else {
+            throw "height of the timeline is not set";
+          }
+        } else {
+          if (!height) {
+            height = gNode.getAttribute("height");
+          } else {
+            gNode.setAttribute("height", height);
+          }
+        }
+      }
     }
 
     // SETTINGS
@@ -537,8 +592,8 @@
     timeline.render = render
 
     timeline.margin = function (p) {
-      if (!arguments.length) return margin;
-      margin = p;
+      if (!arguments.length) return presetMargin;
+      presetMargin = p;
       return timeline;
     };
 
@@ -744,4 +799,5 @@
 
     return timeline;
   };
+
 });
