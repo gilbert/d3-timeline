@@ -212,7 +212,6 @@
     }
 
     function render (gParent, chartData) {
-      console.log("Rendering", chartData)
       var existing = gParent.select('g')
       var g = existing.node() && existing || gParent.append("g");
       var gParentSize = gParent.node().getBoundingClientRect();
